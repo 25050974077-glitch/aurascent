@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AURASCENT | Find Your Signature Scent</title>
+  <meta name="description" content="AURASCENT is a fragrance house for people who want a scent that feels like their own.">
+  <!-- Fonts are optional: if offline, the page falls back to Georgia and system sans-serif. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#collection">Skip to the collection</a>
+
+  <!-- ============ NAVBAR ============ -->
+  <header class="site-header" id="siteHeader">
+    <div class="container nav-inner">
+      <a class="logo" href="#home" aria-label="AURASCENT home">AURASCENT</a>
+
+      <nav id="mainNav" class="main-nav" aria-label="Main navigation">
+        <a href="#home">Home</a>
+        <a href="#collection">Collection</a>
+        <a href="#story">Our Story</a>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="navSearchBtn" class="icon-btn" type="button" aria-label="Search the catalog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
+        </button>
+        <button id="menuToggle" class="icon-btn menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="home">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <h1>SCENT THAT DEFINES YOU.</h1>
+          <p>Discover fragrances that capture your character, express your mood, and leave a lasting impression.</p>
+          <a class="btn btn-gold" href="#collection">Explore Collection</a>
+        </div>
+        <figure class="hero-visual">
+          <div class="hero-ring" aria-hidden="true"></div>
+          <img id="heroImage" alt="AURASCENT glass perfume bottle with a champagne gold cap" width="400" height="500">
+          <figcaption>Find Your Signature Scent.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ============ FEATURED COLLECTION ============ -->
+    <section class="section" id="featured">
+      <div class="container">
+        <div class="section-head">
+          <h2>Featured Collection</h2>
+          <p>Three fragrances our visitors return to most.</p>
+        </div>
+        <div id="featuredGrid" class="featured-grid"></div>
+      </div>
+    </section>
+
+    <!-- ============ CATALOG ============ -->
+    <section class="section section-catalog" id="collection">
+      <div class="container">
+        <div class="section-head">
+          <h2>The Collection</h2>
+          <p>Ten fragrances across six scent families, from soft florals to deep orientals.</p>
+        </div>
+
+        <!-- Sorting and searching controls -->
+        <div class="toolbar">
+          <form id="searchForm" class="search-form" role="search" novalidate>
+            <label for="searchInput" class="field-label">Search</label>
+            <div class="field-row">
+              <input id="searchInput" type="search" placeholder="Search your signature scent..." autocomplete="off">
+              <button class="btn btn-solid" type="submit">Search</button>
+              <button id="searchReset" class="btn btn-outline" type="button">Clear</button>
+            </div>
+            <p id="searchMessage" class="form-message" role="status" aria-live="polite"></p>
+          </form>
+
+          <div class="sort-form">
+            <label for="sortSelect" class="field-label">Sort by</label>
+            <div class="field-row">
+              <select id="sortSelect">
+                <option value="default">Recommended</option>
+                <option value="price-asc">Price: lowest to highest</option>
+                <option value="price-desc">Price: highest to lowest</option>
+                <option value="name-asc">Name: A to Z</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="catalog-meta">
+          <p id="catalogStatus" class="catalog-status" aria-live="polite"></p>
+        </div>
+
+        <div id="catalogGrid" class="catalog-grid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ============ OUR STORY ============ -->
+    <section class="section section-story" id="story">
+      <div class="container story-grid">
+        <h2>Our Story</h2>
+        <div class="story-text">
+          <p>AURASCENT began with a simple observation: most people choose a perfume by what is popular, not by what feels like them. We wanted to make that choice calmer and more personal.</p>
+          <p>Our catalog is small on purpose. Each fragrance belongs to a clear scent family, such as floral, woody, fresh, oriental, citrus, or gourmand, so you can compare notes instead of scrolling through hundreds of bottles.</p>
+          <p>Whether you are wearing your first perfume or looking for the one you will be remembered by, we help you find a scent that is unmistakably yours.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <p class="footer-logo">AURASCENT</p>
+        <p class="footer-tagline">Find Your Signature Scent.</p>
+      </div>
+      <nav aria-label="Footer navigation" class="footer-nav">
+        <a href="#home">Home</a>
+        <a href="#collection">Collection</a>
+        <a href="#story">Our Story</a>
+      </nav>
+      <p class="footer-note">The catalogue on this site is demonstration data. Products, prices, and stock levels are samples and cannot be purchased.</p>
+    </div>
+  </footer>
+
+  <!-- ============ PRODUCT DETAIL MODAL ============ -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button id="modalClose" class="modal-close" type="button" aria-label="Close details">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+      <div class="modal-media"><img id="modalImage" alt=""></div>
+      <div class="modal-body">
+        <p id="modalCategory" class="modal-category"></p>
+        <h3 id="modalTitle"></h3>
+        <p id="modalDescription" class="modal-description"></p>
+        <dl class="modal-specs">
+          <div><dt>Bottle size</dt><dd id="modalSize"></dd></div>
+          <div><dt>Price</dt><dd id="modalPrice"></dd></div>
+          <div><dt>Stock</dt><dd id="modalStock"></dd></div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
