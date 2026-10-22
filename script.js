@@ -249,7 +249,19 @@ function runReferenceDemo() {
   out.push("sortedList === perfumes  ->  " + (sortedList === perfumes) + "   (separate array)");
   out.push("Every sortedList element is an object from perfumes  ->  " + sameObjects);
 
-  console.log(out.join("\n"));
+  // The cart holds REFERENCES to objects of `perfumes` (not copies)
+  out.push("");
+  if (cart.length > 0) {
+    out.push("cart[0].product === perfumes[" + perfumes.indexOf(cart[0].product) + "]  ->  " +
+             (cart[0].product === perfumes[perfumes.indexOf(cart[0].product)]) + "   (cart item refers to the catalog object)");
+  } else {
+    out.push("Add a product to the cart, then run this demo again to compare cart[0].product with perfumes[i].");
+  }
+
+  const text = out.join("\n");
+  const box = byId("demoOutput");
+  if (box) box.textContent = text;
+  console.log(text);
 }
 
 
@@ -418,7 +430,10 @@ function createCard(p, tagText) {
       <h3 class="card-name">${p.name}</h3>
       <p class="card-meta">${p.category}, ${p.size}</p>
       <p class="card-price">${formatRupiah(p.price)}</p>
-      <button type="button" class="btn btn-outline" data-id="${p.id}">View Details</button>
+      <div class="card-actions">
+        <button type="button" class="btn btn-outline" data-id="${p.id}">View Details</button>
+        <button type="button" class="btn btn-solid" data-add="${p.id}" ${p.stock === 0 ? "disabled" : ""}>${p.stock === 0 ? "Sold out" : "Add to Cart"}</button>
+      </div>
     </div>`;
   attachImageFallback(card.querySelector("img"));
   return card;
@@ -486,6 +501,10 @@ function openModal(id) {
   byId("modalSize").textContent = p.size;
   byId("modalPrice").textContent = formatRupiah(p.price);
   byId("modalStock").textContent = `${p.stock} in stock`;
+  const addBtn = byId("modalAdd");
+  addBtn.dataset.id = p.id;
+  addBtn.disabled = p.stock === 0;
+  addBtn.textContent = p.stock === 0 ? "Sold out" : "Add to Cart";
 
   byId("modal").hidden = false;
   document.body.classList.add("modal-open");
@@ -499,9 +518,364 @@ function closeModal() {
 }
 
 /* =========================================================
+   CART: an ARRAY of STRUCT-like objects holding REFERENCES
+   ---------------------------------------------------------
+   cart            array of cart items
+   cart item       { product, qty }  (struct representation)
+   item.product    a REFERENCE to the object inside `perfumes`.
+                   It is not a copy, so item.product === perfumes[i].
+                   Changing item.product.stock at checkout therefore
+                   updates the catalog object directly (pointer idea).
+   orders          array of finished orders (struct-like objects)
+   ========================================================= */
+let cart = [];
+const orders = [];
+const CART_KEY = "aurascent-cart";
+const SHIPPING = {
+  regular: { label: "Regular (3-5 days)", cost: 15000 },
+  express: { label: "Express (1-2 days)", cost: 30000 }
+};
+
+function findCartItem(product) {
+  for (let i = 0; i < cart.length; i++) {
+    if (cart[i].product === product) return cart[i];   // reference comparison
+  }
+  return null;
+}
+
+function cartCount() {
+  let total = 0;
+  for (let i = 0; i < cart.length; i++) total += cart[i].qty;
+  return total;
+}
+
+function cartSubtotal() {
+  let total = 0;
+  for (let i = 0; i < cart.length; i++) total += cart[i].product.price * cart[i].qty;
+  return total;
+}
+
+function saveCart() {
+  try {
+    const plain = cart.map(item => ({ id: item.product.id, qty: item.qty }));
+    localStorage.setItem(CART_KEY, JSON.stringify(plain));
+  } catch (e) { /* storage unavailable: the cart still works in memory */ }
+}
+
+function loadCart() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CART_KEY) || "[]");
+    saved.forEach(entry => {
+      const product = findPerfumeById(entry.id);      // rebuild the reference
+      const qty = product ? Math.min(entry.qty, product.stock) : 0;
+      if (qty > 0) cart.push({ product, qty });
+    });
+  } catch (e) { cart = []; }
+}
+
+let toastTimer = null;
+function showToast(message) {
+  const toast = byId("toast");
+  toast.textContent = message;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+}
+
+function addToCart(id) {
+  const product = findPerfumeById(id);
+  if (!product) return;
+  const item = findCartItem(product);
+  const inCart = item ? item.qty : 0;
+  if (inCart + 1 > product.stock) {
+    showToast(`Only ${product.stock} of ${product.name} available.`);
+    return;
+  }
+  if (item) item.qty++;
+  else cart.push({ product: product, qty: 1 });
+  saveCart();
+  renderCart();
+  showToast(`${product.name} added to cart.`);
+}
+
+function removeFromCart(id) {
+  const product = findPerfumeById(id);
+  for (let i = 0; i < cart.length; i++) {
+    if (cart[i].product === product) { cart.splice(i, 1); break; }
+  }
+  saveCart();
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  const product = findPerfumeById(id);
+  const item = findCartItem(product);
+  if (!item) return;
+  const next = item.qty + delta;
+  if (next < 1) { removeFromCart(id); return; }
+  if (next > product.stock) { showToast(`Only ${product.stock} of ${product.name} available.`); return; }
+  item.qty = next;
+  saveCart();
+  renderCart();
+}
+
+function renderCart() {
+  const list = byId("cartItems");
+  list.innerHTML = "";
+  cart.forEach(item => {
+    const p = item.product;
+    const li = document.createElement("li");
+    li.className = "cart-item";
+    li.innerHTML = `
+      <img src="${p.image}" alt="">
+      <div>
+        <p class="cart-name">${p.name}</p>
+        <p class="cart-meta">${p.size}, ${formatRupiah(p.price)}</p>
+        <div class="qty">
+          <button type="button" data-qty="-1" data-id="${p.id}" aria-label="Decrease quantity of ${p.name}">-</button>
+          <span>${item.qty}</span>
+          <button type="button" data-qty="1" data-id="${p.id}" aria-label="Increase quantity of ${p.name}">+</button>
+        </div>
+      </div>
+      <div class="cart-side">
+        <p class="cart-line">${formatRupiah(p.price * item.qty)}</p>
+        <button type="button" class="link-btn" data-remove="${p.id}">Remove</button>
+      </div>`;
+    attachImageFallback(li.querySelector("img"));
+    list.appendChild(li);
+  });
+
+  const count = cartCount();
+  byId("cartEmpty").hidden = cart.length > 0;
+  byId("checkoutBtn").disabled = cart.length === 0;
+  byId("cartSubtotal").textContent = formatRupiah(cartSubtotal());
+  const badge = byId("cartCount");
+  badge.textContent = count;
+  badge.hidden = count === 0;
+}
+
+/* ----- Overlays (cart drawer and checkout) ----- */
+let lastFocus = null;
+function openOverlay(el, focusEl) {
+  lastFocus = document.activeElement;
+  el.hidden = false;
+  document.body.classList.add("modal-open");
+  if (focusEl) focusEl.focus();
+}
+function closeOverlay(el) {
+  el.hidden = true;
+  document.body.classList.remove("modal-open");
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+}
+const openDrawer = () => openOverlay(byId("cartDrawer"), byId("cartClose"));
+const closeDrawer = () => closeOverlay(byId("cartDrawer"));
+const closeCheckout = () => closeOverlay(byId("checkout"));
+
+/* =========================================================
+   CHECKOUT: customer data, validation, and the order struct
+   ========================================================= */
+const FIELD_RULES = {
+  name:    v => v.length < 3 ? "Please enter your full name." : "",
+  phone:   v => /^(\+62|62|0)8[0-9]{8,11}$/.test(v.replace(/[\s-]/g, "")) ? "" : "Enter a valid mobile number, for example 081234567890.",
+  email:   v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? "" : "Enter a valid email address.",
+  address: v => v.length < 10 ? "Please enter a complete street address." : "",
+  city:    v => v.length < 2 ? "Please enter your city." : "",
+  postal:  v => /^[0-9]{5}$/.test(v) ? "" : "Postal code must be 5 digits."
+};
+
+function selectedShipping() {
+  const key = document.querySelector('input[name="shipping"]:checked').value;
+  return { key, label: SHIPPING[key].label, cost: SHIPPING[key].cost };
+}
+
+function renderSummary() {
+  const list = byId("summaryItems");
+  list.innerHTML = "";
+  cart.forEach(item => {
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    left.textContent = `${item.product.name} x ${item.qty}`;
+    const right = document.createElement("span");
+    right.textContent = formatRupiah(item.product.price * item.qty);
+    li.append(left, right);
+    list.appendChild(li);
+  });
+  const shipping = selectedShipping().cost;
+  byId("sumSubtotal").textContent = formatRupiah(cartSubtotal());
+  byId("sumShipping").textContent = formatRupiah(shipping);
+  byId("sumTotal").textContent = formatRupiah(cartSubtotal() + shipping);
+}
+
+function openCheckout() {
+  if (cart.length === 0) return;
+  closeDrawer();
+  const form = byId("checkoutForm");
+  form.reset();
+  form.querySelectorAll(".field-error").forEach(el => { el.textContent = ""; });
+  form.querySelectorAll("[aria-invalid]").forEach(el => el.removeAttribute("aria-invalid"));
+  byId("checkoutError").textContent = "";
+  form.hidden = false;
+  byId("checkoutSummary").hidden = false;
+  byId("orderSuccess").hidden = true;
+  renderSummary();
+  openOverlay(byId("checkout"), form.elements.namedItem("name"));
+}
+
+function placeOrder(event) {
+  event.preventDefault();
+  const form = byId("checkoutForm");
+  const customer = {};
+  let firstInvalid = null;
+
+  // validate every customer field
+  Object.keys(FIELD_RULES).forEach(key => {
+    const input = form.elements.namedItem(key);
+    customer[key] = input.value.trim();
+    const message = FIELD_RULES[key](customer[key]);
+    form.querySelector(`[data-error="${key}"]`).textContent = message;
+    if (message) {
+      input.setAttribute("aria-invalid", "true");
+      if (!firstInvalid) firstInvalid = input;
+    } else {
+      input.removeAttribute("aria-invalid");
+    }
+  });
+  if (firstInvalid) { firstInvalid.focus(); return; }
+  customer.notes = form.elements.namedItem("notes").value.trim();
+
+  // make sure the stock is still enough
+  for (let i = 0; i < cart.length; i++) {
+    if (cart[i].qty > cart[i].product.stock) {
+      byId("checkoutError").textContent = `${cart[i].product.name} only has ${cart[i].product.stock} left. Please update your cart.`;
+      return;
+    }
+  }
+
+  const shipping = selectedShipping();
+  const subtotal = cartSubtotal();
+
+  // the ORDER struct
+  const order = {
+    id: "AUR-" + new Date().toISOString().slice(0, 10).replace(/-/g, "") + "-" + (1000 + Math.floor(Math.random() * 9000)),
+    date: new Date().toLocaleString("id-ID"),
+    customer: customer,
+    shipping: { method: shipping.label, cost: shipping.cost },
+    payment: form.elements.namedItem("payment").value,
+    items: cart.map(item => ({
+      id: item.product.id, name: item.product.name, size: item.product.size,
+      qty: item.qty, price: item.product.price, subtotal: item.product.price * item.qty
+    })),
+    subtotal: subtotal,
+    total: subtotal + shipping.cost
+  };
+
+  // reduce stock THROUGH THE REFERENCE: the object in `perfumes` is updated
+  cart.forEach(item => { item.product.stock -= item.qty; });
+
+  orders.push(order);
+  console.log("Order placed:", order);
+
+  cart = [];
+  saveCart();
+  renderCart();
+  renderFeatured();
+  refreshCatalogView();
+  showSuccess(order);
+}
+
+function showSuccess(order) {
+  byId("successName").textContent = order.customer.name;
+  byId("successId").textContent = order.id;
+  byId("successDate").textContent = order.date;
+  byId("successTotal").textContent = formatRupiah(order.total);
+  byId("successShipping").textContent = `${order.shipping.method}, ${formatRupiah(order.shipping.cost)}`;
+  byId("successPayment").textContent = order.payment;
+  byId("successAddress").textContent = `${order.customer.address}, ${order.customer.city} ${order.customer.postal}`;
+  byId("successContact").textContent = `${order.customer.phone}, ${order.customer.email}`;
+
+  const list = byId("successItems");
+  list.innerHTML = "";
+  order.items.forEach(item => {
+    const li = document.createElement("li");
+    const left = document.createElement("span");
+    left.textContent = `${item.name} (${item.size}) x ${item.qty}`;
+    const right = document.createElement("span");
+    right.textContent = formatRupiah(item.subtotal);
+    li.append(left, right);
+    list.appendChild(li);
+  });
+
+  byId("checkoutForm").hidden = true;
+  byId("checkoutSummary").hidden = true;
+  byId("orderSuccess").hidden = false;
+  byId("successDone").focus();
+}
+
+/* =========================================================
+   ALGORITHM STUDIO (collapsed by default)
+   Shows the real step logs produced by bubbleSort and linearSearch.
+   ========================================================= */
+function openStudio(tab) {
+  byId("studio").hidden = false;
+  byId("studioToggle").setAttribute("aria-expanded", "true");
+  if (tab) setActiveTab(tab);
+}
+function closeStudio() {
+  byId("studio").hidden = true;
+  byId("studioToggle").setAttribute("aria-expanded", "false");
+}
+function setActiveTab(name) {
+  document.querySelectorAll(".tab").forEach(tab => tab.setAttribute("aria-selected", String(tab.dataset.tab === name)));
+  ["sort", "search", "concepts"].forEach(panel => { byId("panel-" + panel).hidden = panel !== name; });
+}
+
+function fillLog(listEl, steps) {
+  listEl.innerHTML = "";
+  steps.forEach(step => {
+    const li = document.createElement("li");
+    li.className = "log-" + step.kind;
+    li.appendChild(document.createTextNode(step.text));
+    if (step.result) {
+      const span = document.createElement("span");
+      span.className = "log-result";
+      span.textContent = step.result;
+      li.appendChild(span);
+    }
+    listEl.appendChild(li);
+  });
+}
+
+function fillMiniList(listEl, list) {
+  listEl.innerHTML = "";
+  list.forEach(p => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.textContent = p.name;
+    const price = document.createElement("span");
+    price.className = "price";
+    price.textContent = formatRupiah(p.price);
+    li.append(name, price);
+    listEl.appendChild(li);
+  });
+}
+
+function showSortReport(report) {
+  byId("sortSummary").textContent =
+    `Bubble Sort, ${report.option.label}: ${report.comparisons} comparisons, ${report.swaps} swaps, ${report.passes} iterations.`;
+  fillMiniList(byId("sortBefore"), perfumes);
+  fillMiniList(byId("sortAfter"), report.sorted);
+  fillLog(byId("sortLog"), report.steps);
+}
+
+function showSearchReport(report) {
+  byId("searchSummary").textContent =
+    `Linear Search for "${report.keyword}": ${report.matches.length} match(es), ${report.checked} elements checked.`;
+  fillLog(byId("searchLog"), report.steps);
+}
+
+/* =========================================================
    8. ACTIONS AND EVENT WIRING
-   The storefront stays clean: the step-by-step algorithm logs
-   are written to the browser console (press F12 > Console).
+   Logs are shown in Algorithm Studio and in the browser console.
    ========================================================= */
 function logToConsole(title, steps) {
   console.groupCollapsed(title);
@@ -519,13 +893,16 @@ function applySort() {
   const key = byId("sortSelect").value;
 
   if (key === "default") {
-    sortedList = perfumes.slice();               // back to the original order
+    sortedList = perfumes.slice();               // original order
     currentSortLabel = "Recommended";
+    byId("sortSummary").textContent = "Original order restored. No sorting was applied.";
+    byId("sortLog").innerHTML = "";
   } else {
-    // take data from `perfumes`, copy it, and run Bubble Sort on the copy
+    // take data from `perfumes`, copy it, run Bubble Sort on the copy
     const report = bubbleSort(perfumes, key);
     sortedList = report.sorted;
     currentSortLabel = report.option.label;
+    showSortReport(report);
     logToConsole(`Bubble Sort: ${report.option.label} (${report.comparisons} comparisons, ${report.swaps} swaps)`, report.steps);
   }
 
@@ -545,9 +922,10 @@ function runSearch() {
     return;
   }
 
-  // Linear Search scans the array currently displayed, so log indexes match the catalog order
+  // scans the array currently displayed, so log indexes match the catalog order
   const report = linearSearch(sortedList, keyword, `displayed catalog (${currentSortLabel})`);
   searchResults = report.matches;
+  showSearchReport(report);
   logToConsole(`Linear Search: "${report.keyword}" (${report.checked} elements checked)`, report.steps);
 
   setSearchMessage(report.matches.length > 0 ? `${report.matches.length} fragrance(s) found.` : "");
@@ -566,37 +944,72 @@ function init() {
   hero.src = createBottleImage({ shape: "rect", liquid: "#C5A46D", cap: "#C5A46D", bg: null, dark: true, name: "Signature" });
   attachImageFallback(hero);
 
+  loadCart();
   renderFeatured();
   renderCatalog(sortedList);
+  renderCart();
 
-  // Product detail buttons (event delegation for catalog and featured)
+  // Product buttons (event delegation for catalog and featured)
   ["catalogGrid", "featuredGrid"].forEach(id => {
     byId(id).addEventListener("click", event => {
-      const button = event.target.closest("button[data-id]");
-      if (button) openModal(Number(button.dataset.id));
+      const details = event.target.closest("button[data-id]");
+      const add = event.target.closest("button[data-add]");
+      if (details) openModal(Number(details.dataset.id));
+      if (add) addToCart(Number(add.dataset.add));
     });
   });
 
-  // Modal
+  // Product modal
   byId("modalClose").addEventListener("click", closeModal);
-  byId("modal").addEventListener("click", event => {
-    if (event.target.dataset.close) closeModal();
+  byId("modal").addEventListener("click", event => { if (event.target.dataset.close) closeModal(); });
+  byId("modalAdd").addEventListener("click", () => addToCart(Number(byId("modalAdd").dataset.id)));
+
+  // Cart drawer
+  byId("cartBtn").addEventListener("click", openDrawer);
+  byId("cartClose").addEventListener("click", closeDrawer);
+  byId("cartDrawer").addEventListener("click", event => { if (event.target.dataset.closeDrawer) closeDrawer(); });
+  byId("cartItems").addEventListener("click", event => {
+    const qtyBtn = event.target.closest("button[data-qty]");
+    const removeBtn = event.target.closest("button[data-remove]");
+    if (qtyBtn) changeQty(Number(qtyBtn.dataset.id), Number(qtyBtn.dataset.qty));
+    if (removeBtn) removeFromCart(Number(removeBtn.dataset.remove));
   });
+  byId("checkoutBtn").addEventListener("click", openCheckout);
+
+  // Checkout
+  byId("checkoutForm").addEventListener("submit", placeOrder);
+  byId("checkoutForm").addEventListener("change", event => {
+    if (event.target.name === "shipping") renderSummary();
+  });
+  byId("checkoutClose").addEventListener("click", closeCheckout);
+  byId("checkout").addEventListener("click", event => { if (event.target.dataset.closeCheckout) closeCheckout(); });
+  byId("successDone").addEventListener("click", () => {
+    closeCheckout();
+    byId("collection").scrollIntoView();
+  });
+
+  // Escape closes whichever overlay is open
   document.addEventListener("keydown", event => {
-    if (event.key === "Escape" && !byId("modal").hidden) closeModal();
+    if (event.key !== "Escape") return;
+    if (!byId("modal").hidden) closeModal();
+    else if (!byId("checkout").hidden) closeCheckout();
+    else if (!byId("cartDrawer").hidden) closeDrawer();
   });
 
   // Sorting applies as soon as an option is chosen
   byId("sortSelect").addEventListener("change", applySort);
 
   // Searching (Enter key submits the form)
-  byId("searchForm").addEventListener("submit", event => {
-    event.preventDefault();
-    runSearch();
-  });
+  byId("searchForm").addEventListener("submit", event => { event.preventDefault(); runSearch(); });
   byId("searchReset").addEventListener("click", resetSearch);
 
-  // Navbar: search icon jumps to the catalog search field
+  // Algorithm Studio
+  byId("studioToggle").addEventListener("click", () => { if (byId("studio").hidden) openStudio(); else closeStudio(); });
+  byId("studioClose").addEventListener("click", closeStudio);
+  document.querySelectorAll(".tab").forEach(tab => tab.addEventListener("click", () => setActiveTab(tab.dataset.tab)));
+  byId("runDemo").addEventListener("click", runReferenceDemo);
+
+  // Navbar search icon jumps to the catalog search field
   byId("navSearchBtn").addEventListener("click", () => {
     byId("collection").scrollIntoView();
     setTimeout(() => byId("searchInput").focus(), 300);
@@ -617,8 +1030,7 @@ function init() {
     }
   });
 
-  // Reference demo output is available in the console for the course demo
-  runReferenceDemo();
+  runReferenceDemo();   // also prints the reference demo to the console
 }
 
 document.addEventListener("DOMContentLoaded", init);
