@@ -29,6 +29,10 @@
         <button id="navSearchBtn" class="icon-btn" type="button" aria-label="Search the catalog">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
         </button>
+        <button id="cartBtn" class="icon-btn cart-btn" type="button" aria-label="Open cart">
+          <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+          <span id="cartCount" class="cart-count" hidden>0</span>
+        </button>
         <button id="menuToggle" class="icon-btn menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mainNav">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>
         </button>
@@ -99,7 +103,71 @@
 
         <div class="catalog-meta">
           <p id="catalogStatus" class="catalog-status" aria-live="polite"></p>
+          <button id="studioToggle" class="studio-toggle" type="button" aria-expanded="false" aria-controls="studio">
+            Algorithm Studio
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
         </div>
+
+        <!-- ============ ALGORITHM STUDIO (collapsed by default) ============ -->
+        <section id="studio" class="studio" aria-label="Algorithm Studio" hidden>
+          <div class="studio-head">
+            <h3>Algorithm Studio</h3>
+            <div class="tabs" role="tablist" aria-label="Algorithm Studio sections">
+              <button class="tab" role="tab" id="tab-sort" type="button" data-tab="sort" aria-controls="panel-sort" aria-selected="true">Bubble Sort</button>
+              <button class="tab" role="tab" id="tab-search" type="button" data-tab="search" aria-controls="panel-search" aria-selected="false">Linear Search</button>
+              <button class="tab" role="tab" id="tab-concepts" type="button" data-tab="concepts" aria-controls="panel-concepts" aria-selected="false">Data Structures</button>
+            </div>
+            <button id="studioClose" class="link-btn" type="button">Close</button>
+          </div>
+
+          <div id="panel-sort" class="studio-panel" role="tabpanel" aria-labelledby="tab-sort">
+            <p id="sortSummary" class="studio-note">Choose an option in "Sort by" to see every comparison and swap of Bubble Sort here.</p>
+            <div class="before-after">
+              <div><h4 class="studio-sub">Before sorting</h4><ol id="sortBefore" class="mini-list"></ol></div>
+              <div><h4 class="studio-sub">After sorting</h4><ol id="sortAfter" class="mini-list"></ol></div>
+            </div>
+            <h4 class="studio-sub">Process log</h4>
+            <ol id="sortLog" class="log"></ol>
+          </div>
+
+          <div id="panel-search" class="studio-panel" role="tabpanel" aria-labelledby="tab-search" hidden>
+            <p id="searchSummary" class="studio-note">Search for a perfume by name to see every index checked by Linear Search here.</p>
+            <h4 class="studio-sub">Process log</h4>
+            <ol id="searchLog" class="log"></ol>
+          </div>
+
+          <div id="panel-concepts" class="studio-panel" role="tabpanel" aria-labelledby="tab-concepts" hidden>
+            <div class="concept-grid">
+              <article class="concept">
+                <h4>Array</h4>
+                <p><code>perfumes</code> holds every product. <code>cart</code> is also an array.</p>
+<pre><code>perfumes[0];
+perfumes.length;
+cart.push({ product, qty });</code></pre>
+              </article>
+              <article class="concept">
+                <h4>Struct</h4>
+                <p>Objects with fixed properties stand in for structs (not C/C++ structs): the perfume, the cart item, and the order.</p>
+<pre><code>{ id, name, brand, category,
+  size, price, stock,
+  description, image }
+cartItem = { product, qty }</code></pre>
+              </article>
+              <article class="concept">
+                <h4>Pointer / Reference</h4>
+                <p>JavaScript has references, not raw pointers. A cart item's <code>product</code> refers to the same object as in <code>perfumes</code>.</p>
+<pre><code>const selectedPerfume = perfumes[0];
+selectedPerfume === perfumes[0];
+cart[0].product === perfumes[i];</code></pre>
+              </article>
+            </div>
+            <div class="demo">
+              <button id="runDemo" class="btn btn-gold" type="button">Run reference demo</button>
+              <pre id="demoOutput" class="demo-output" aria-live="polite">Press the button to check object references live.</pre>
+            </div>
+          </div>
+        </section>
 
         <div id="catalogGrid" class="catalog-grid" aria-live="polite"></div>
       </div>
@@ -151,9 +219,101 @@
           <div><dt>Price</dt><dd id="modalPrice"></dd></div>
           <div><dt>Stock</dt><dd id="modalStock"></dd></div>
         </dl>
+        <button id="modalAdd" class="btn btn-solid" type="button">Add to Cart</button>
       </div>
     </div>
   </div>
+
+  <!-- ============ CART DRAWER ============ -->
+  <div id="cartDrawer" class="drawer" hidden>
+    <div class="drawer-backdrop" data-close-drawer="true"></div>
+    <aside class="drawer-panel" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+      <div class="drawer-head">
+        <h3 id="cartTitle">Your Cart</h3>
+        <button id="cartClose" class="icon-btn" type="button" aria-label="Close cart">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+        </button>
+      </div>
+      <ul id="cartItems" class="cart-items"></ul>
+      <p id="cartEmpty" class="cart-empty">Your cart is empty. Add a fragrance to begin.</p>
+      <div class="drawer-foot">
+        <div class="row"><span>Subtotal</span><strong id="cartSubtotal">Rp0</strong></div>
+        <button id="checkoutBtn" class="btn btn-solid btn-block" type="button">Checkout</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============ CHECKOUT ============ -->
+  <div id="checkout" class="modal" hidden>
+    <div class="modal-backdrop" data-close-checkout="true"></div>
+    <div class="modal-dialog checkout-dialog" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+      <button id="checkoutClose" class="modal-close" type="button" aria-label="Close checkout">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+
+      <form id="checkoutForm" class="checkout-form" novalidate>
+        <h3 id="checkoutTitle">Checkout</h3>
+
+        <fieldset>
+          <legend>Customer details</legend>
+          <div class="form-grid">
+            <div class="field full"><label for="f-name">Full name</label><input id="f-name" name="name" type="text" autocomplete="name"><p class="field-error" data-error="name"></p></div>
+            <div class="field"><label for="f-phone">Phone number</label><input id="f-phone" name="phone" type="tel" placeholder="081234567890" autocomplete="tel"><p class="field-error" data-error="phone"></p></div>
+            <div class="field"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email"><p class="field-error" data-error="email"></p></div>
+            <div class="field full"><label for="f-address">Street address</label><textarea id="f-address" name="address" autocomplete="street-address"></textarea><p class="field-error" data-error="address"></p></div>
+            <div class="field"><label for="f-city">City</label><input id="f-city" name="city" type="text" autocomplete="address-level2"><p class="field-error" data-error="city"></p></div>
+            <div class="field"><label for="f-postal">Postal code</label><input id="f-postal" name="postal" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code"><p class="field-error" data-error="postal"></p></div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Shipping</legend>
+          <label class="choice"><input type="radio" name="shipping" value="regular" checked> Regular, 3-5 days <span class="choice-price">Rp15.000</span></label>
+          <label class="choice"><input type="radio" name="shipping" value="express"> Express, 1-2 days <span class="choice-price">Rp30.000</span></label>
+        </fieldset>
+
+        <div class="field">
+          <label for="f-payment">Payment method</label>
+          <select id="f-payment" name="payment">
+            <option>Bank Transfer</option>
+            <option>E-Wallet</option>
+            <option>Cash on Delivery</option>
+          </select>
+        </div>
+        <div class="field"><label for="f-notes">Notes (optional)</label><input id="f-notes" name="notes" type="text"></div>
+
+        <p id="checkoutError" class="form-message is-error" role="alert"></p>
+        <button class="btn btn-solid" type="submit">Place Order</button>
+      </form>
+
+      <aside id="checkoutSummary" class="checkout-summary">
+        <h4>Order summary</h4>
+        <ul id="summaryItems"></ul>
+        <div class="sum-rows">
+          <div><span>Subtotal</span><span id="sumSubtotal"></span></div>
+          <div><span>Shipping</span><span id="sumShipping"></span></div>
+          <div class="sum-total"><span>Total</span><span id="sumTotal"></span></div>
+        </div>
+      </aside>
+
+      <div id="orderSuccess" class="order-success" hidden>
+        <p class="modal-category">Order confirmed</p>
+        <h3>Thank you, <span id="successName"></span>.</h3>
+        <p>Your order <strong id="successId"></strong> has been placed on <span id="successDate"></span>. This is a demo store, so no payment was taken.</p>
+        <ul id="successItems" class="success-items"></ul>
+        <dl class="modal-specs">
+          <div><dt>Total</dt><dd id="successTotal"></dd></div>
+          <div><dt>Shipping</dt><dd id="successShipping"></dd></div>
+          <div><dt>Payment</dt><dd id="successPayment"></dd></div>
+          <div><dt>Deliver to</dt><dd id="successAddress"></dd></div>
+          <div><dt>Contact</dt><dd id="successContact"></dd></div>
+        </dl>
+        <button id="successDone" class="btn btn-solid" type="button">Continue Shopping</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="script.js"></script>
 </body>
